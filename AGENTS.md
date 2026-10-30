@@ -7,9 +7,6 @@
 - **Format Parity**: Both JSON and binary gRPC return the exact same protobuf schema and fields from the daemon; never assume or claim they return different keys or formats.
 - **Only do what user has told you to do**: Never touch a single line that user has not told to do, if user said to do Task X then do that nothing else not even add a signle extra space somewhere, if need such things to chagne mroe than user has asked for, alwasy explain user that you want to do this too.
 
--- "Dont try building release build ever"
--- "Dont try git push pull commit, stash etc ever"
-
 -- While running new command for build/etc always check for previous if ther is runnign smae thigns then either kill it then start new or wait for old (Dont run both);
 
 -- Always check running process before exectuing new task run(so that you dont execute same task twice or more times)
