@@ -22,7 +22,7 @@ android {
     namespace = "com.example.gemini"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.antigem"
+        applicationId = "com.antigravity.mobile"
         minSdk = 24
         targetSdk = 28
         versionCode = appVersionCode
@@ -51,7 +51,7 @@ android {
         }
         create("termux") {
             dimension = "mode"
-            applicationId = "com.termux"
+            applicationId = "com.antigravity.mobile"
             buildConfigField("int", "BRIDGE_PORT", "1234")
             buildConfigField("int", "HUB_PORT", "1235")
             buildConfigField("int", "BROWSER_MCP_PORT", "8765")

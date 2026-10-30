@@ -204,6 +204,8 @@ class LocalPtySession(
                 } else if (File("/sdcard").exists()) {
                     prootArgs.add("--bind=/sdcard")
                 }
+                prootArgs.add("--bind=${context.filesDir.absolutePath}:/data/data/com.antigravity.mobile/files")
+                prootArgs.add("--bind=${context.filesDir.absolutePath}:/data/data/com.termux/files")
                 LocalEnvironmentManager.setupProotDistroUbuntuFixups(context, ubuntuDir)
 
                 val envWrapper = listOf(

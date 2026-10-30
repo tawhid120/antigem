@@ -582,8 +582,14 @@ object LocalEnvironmentManager {
             val libexecDir = File(getPrefixDir(context), "libexec")
             if (!libexecDir.exists()) libexecDir.mkdirs()
             val dispatcherFile = File(libexecDir, "termux-api")
+            val prefixPath = getPrefixDir(context).absolutePath
+            val tmpPath = getTmpDir(context).absolutePath
+            val pkg = context.packageName
             val scriptContent = """
-                #!/data/data/com.termux/files/usr/bin/bash
+                #!${prefixPath}/bin/bash
+                if [ ! -x "${prefixPath}/bin/bash" ] && [ -x "/bin/bash" ]; then
+                    exec /bin/bash "$0" "$@"
+                fi
                 METHOD="${'$'}1"
                 shift
 
@@ -595,13 +601,13 @@ object LocalEnvironmentManager {
                     fi
                 fi
 
-                TMP_DIR="${'$'}{TMPDIR:-/data/data/com.termux/files/usr/tmp}"
+                TMP_DIR="${'$'}{TMPDIR:-${tmpPath}}"
                 mkdir -p "${'$'}TMP_DIR"
                 TMP_OUT="${'$'}TMP_DIR/api_out.${'$'}${'$'}"
 
                 am broadcast --user 0 \
-                    -a "com.termux.api" \
-                    -n "com.termux/com.example.gemini.data.receiver.TermuxApiReceiver" \
+                    -a "${pkg}.api" \
+                    -n "${pkg}/com.example.gemini.data.receiver.TermuxApiReceiver" \
                     --es "api_method" "${'$'}METHOD" \
                     --es "socket_output" "${'$'}TMP_OUT" \
                     "${'$'}{EXTRA_ARGS[@]}" \
@@ -2367,6 +2373,10 @@ All files created here persist inside the application.
                 cmdList.add("-b")
                 cmdList.add("/sdcard")
             }
+            cmdList.add("-b")
+            cmdList.add("${context.filesDir.absolutePath}:/data/data/com.antigravity.mobile/files")
+            cmdList.add("-b")
+            cmdList.add("${context.filesDir.absolutePath}:/data/data/com.termux/files")
             cmdList.addAll(
                 listOf(
                     "-b", "${homeDir.absolutePath}:/root/workspace",

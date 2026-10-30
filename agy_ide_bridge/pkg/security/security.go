@@ -52,7 +52,11 @@ func BuildFramedHeader(token string) string {
 func getTokenFilePath() string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
-		home = "/data/data/com.termux/files/home"
+		if _, err := os.Stat("/data/data/com.antigravity.mobile/files/home"); err == nil {
+			home = "/data/data/com.antigravity.mobile/files/home"
+		} else {
+			home = "/data/data/com.termux/files/home"
+		}
 	}
 	return filepath.Join(home, ".antigem_bridge", "csrf_token.txt")
 }

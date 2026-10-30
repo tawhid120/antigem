@@ -1761,9 +1761,14 @@ func (h *Handler) McpConfigHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func injectTermuxEnvIfNeeded(rawContent string) string {
-	libTermuxExec := "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
+	libTermuxExec := "/data/data/com.antigravity.mobile/files/usr/lib/libtermux-exec.so"
+	termuxPrefix := "/data/data/com.antigravity.mobile/files/usr"
 	if _, err := os.Stat(libTermuxExec); err != nil {
-		return rawContent
+		libTermuxExec = "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
+		termuxPrefix = "/data/data/com.termux/files/usr"
+		if _, err := os.Stat(libTermuxExec); err != nil {
+			return rawContent
+		}
 	}
 	var root map[string]interface{}
 	if err := json.Unmarshal([]byte(rawContent), &root); err != nil {
@@ -1789,9 +1794,9 @@ func injectTermuxEnvIfNeeded(rawContent string) string {
 			if _, hasPath := envMap["PATH"]; !hasPath {
 				home, _ := os.UserHomeDir()
 				if home != "" {
-					envMap["PATH"] = filepath.Join(home, ".local", "bin") + ":/data/data/com.termux/files/usr/bin:/system/bin"
+					envMap["PATH"] = filepath.Join(home, ".local", "bin") + ":" + filepath.Join(termuxPrefix, "bin") + ":/system/bin"
 				} else {
-					envMap["PATH"] = "/data/data/com.termux/files/home/.local/bin:/data/data/com.termux/files/usr/bin:/system/bin"
+					envMap["PATH"] = filepath.Join(termuxPrefix, "bin") + ":/system/bin"
 				}
 			}
 			sMap["env"] = envMap

@@ -39,6 +39,7 @@ if [[ "${MODE}" == "release" ]]; then
 
     APKS_SRC="${ROOT_DIR}/app/build/outputs/apk"
     # find "${APKS_SRC}/standard/release" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/antiGem-standard-v${VERSION_NAME}-release.apk" \;
+    find "${APKS_SRC}/termux/release" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/AntiGravityMobile-v${VERSION_NAME}-release.apk" \;
     find "${APKS_SRC}/termux/release" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/antiGem-termux-v${VERSION_NAME}-release.apk" \;
 
     # if [[ -f "${ROOT_DIR}/app/src/main/assets/bin/agy_ide_bridge" ]]; then

@@ -35,6 +35,7 @@ func getGitBinary() string {
 
 func getEnv() []string {
 	env := os.Environ()
+	antiBin := "/data/data/com.antigravity.mobile/files/usr/bin"
 	termuxBin := "/data/data/com.termux/files/usr/bin"
 	home, _ := os.UserHomeDir()
 	localBin := filepath.Join(home, ".local", "bin")
@@ -49,6 +50,9 @@ func getEnv() []string {
 			if home != "" && !strings.Contains(curPath, localBin) {
 				newParts = append(newParts, localBin)
 			}
+			if !strings.Contains(curPath, antiBin) {
+				newParts = append(newParts, antiBin)
+			}
 			if !strings.Contains(curPath, termuxBin) {
 				newParts = append(newParts, termuxBin)
 			}
@@ -61,7 +65,7 @@ func getEnv() []string {
 		}
 	}
 	if !pathFound {
-		env = append(env, "PATH="+localBin+":"+termuxBin+":"+geminiBin+":/usr/local/bin:/usr/bin:/bin:/system/bin:/system/xbin")
+		env = append(env, "PATH="+localBin+":"+antiBin+":"+termuxBin+":"+geminiBin+":/usr/local/bin:/usr/bin:/bin:/system/bin:/system/xbin")
 	}
 	return env
 }
