@@ -172,7 +172,11 @@ object LocalEnvironmentManager {
     fun getHomeDir(context: Context): File = File(context.filesDir, "home")
     fun getProjectsDir(context: Context): File = File(getHomeDir(context), "projects")
     fun getUbuntuRootDir(context: Context): File = File(context.filesDir, "ubuntu")
-    fun isTermuxPackage(context: Context): Boolean = context.packageName == "com.termux"
+    fun isTermuxPackage(context: Context): Boolean =
+        context.packageName == "com.antigravity.mobile" ||
+        context.packageName == "com.termux" ||
+        context.packageName.contains("termux") ||
+        context.packageName != "com.antigem"
 
     fun ensureProotExtracted(context: Context): String {
         val binDir = File(context.filesDir, "bin")
@@ -2611,6 +2615,7 @@ All files created here persist inside the application.
             File(binDir, "bash").exists() -> File(binDir, "bash").absolutePath
             File(prefixDir, "bin/bash").exists() -> File(prefixDir, "bin/bash").absolutePath
             File(binDir, "sh").exists() -> File(binDir, "sh").absolutePath
+            File("/data/data/com.antigravity.mobile/files/usr/bin/bash").exists() -> "/data/data/com.antigravity.mobile/files/usr/bin/bash"
             File("/data/data/com.termux/files/usr/bin/bash").exists() -> "/data/data/com.termux/files/usr/bin/bash"
             else -> "sh"
         }

@@ -292,11 +292,16 @@ class AgyMcpManager(
                             }
                             val envMap = spec.env.toMutableMap()
                             // Ensure Termux stdio binaries (npx, python3, etc.) have proper loader and PATH on Android
-                            if (!envMap.containsKey("LD_PRELOAD")) {
-                                envMap["LD_PRELOAD"] = "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
+                            val execSo = when {
+                                java.io.File("/data/data/com.antigravity.mobile/files/usr/lib/libtermux-exec.so").exists() -> "/data/data/com.antigravity.mobile/files/usr/lib/libtermux-exec.so"
+                                java.io.File("/data/data/com.termux/files/usr/lib/libtermux-exec.so").exists() -> "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
+                                else -> null
+                            }
+                            if (!envMap.containsKey("LD_PRELOAD") && execSo != null) {
+                                envMap["LD_PRELOAD"] = execSo
                             }
                             if (!envMap.containsKey("PATH")) {
-                                envMap["PATH"] = "/data/data/com.termux/files/home/.local/bin:/data/data/com.termux/files/usr/bin:/system/bin"
+                                envMap["PATH"] = "/data/data/com.antigravity.mobile/files/home/.local/bin:/data/data/com.antigravity.mobile/files/usr/bin:/data/data/com.termux/files/home/.local/bin:/data/data/com.termux/files/usr/bin:/system/bin"
                             }
                             if (envMap.isNotEmpty()) {
                                 val envObj = org.json.JSONObject()

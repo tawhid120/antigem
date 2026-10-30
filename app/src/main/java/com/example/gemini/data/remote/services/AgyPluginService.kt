@@ -190,11 +190,16 @@ class AgyPluginService(
                                           System.getenv("PREFIX") != null ||
                                           (System.getProperty("java.vendor")?.contains("Android", ignoreCase = true) == true)
                     if (isAndroidTermux) {
-                        if (!envMap.containsKey("LD_PRELOAD") && java.io.File("/data/data/com.termux/files/usr/lib/libtermux-exec.so").exists()) {
-                            envMap["LD_PRELOAD"] = "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
+                        val execSo = when {
+                            java.io.File("/data/data/com.antigravity.mobile/files/usr/lib/libtermux-exec.so").exists() -> "/data/data/com.antigravity.mobile/files/usr/lib/libtermux-exec.so"
+                            java.io.File("/data/data/com.termux/files/usr/lib/libtermux-exec.so").exists() -> "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
+                            else -> null
+                        }
+                        if (!envMap.containsKey("LD_PRELOAD") && execSo != null) {
+                            envMap["LD_PRELOAD"] = execSo
                         }
                         if (!envMap.containsKey("PATH")) {
-                            envMap["PATH"] = "/data/data/com.termux/files/home/.local/bin:/data/data/com.termux/files/usr/bin:/system/bin"
+                            envMap["PATH"] = "/data/data/com.antigravity.mobile/files/home/.local/bin:/data/data/com.antigravity.mobile/files/usr/bin:/data/data/com.termux/files/home/.local/bin:/data/data/com.termux/files/usr/bin:/system/bin"
                         }
                     }
 

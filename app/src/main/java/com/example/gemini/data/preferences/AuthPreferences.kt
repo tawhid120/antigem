@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.gemini.data.local.LocalEnvironmentManager
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -755,17 +756,27 @@ class AuthPreferences(private val context: Context) {
     }
 
     fun getDefaultBridgeBinaryPath(): String =
-        if (context.packageName == "com.termux") DEFAULT_BRIDGE_BINARY_PATH else DEFAULT_UBUNTU_BRIDGE_BINARY_PATH
+        if (LocalEnvironmentManager.isTermuxPackage(context)) DEFAULT_BRIDGE_BINARY_PATH else DEFAULT_UBUNTU_BRIDGE_BINARY_PATH
 
     fun getDefaultAgyBinaryPath(): String =
-        if (context.packageName == "com.termux") DEFAULT_AGY_BINARY_PATH else DEFAULT_UBUNTU_AGY_BINARY_PATH
+        if (LocalEnvironmentManager.isTermuxPackage(context)) DEFAULT_AGY_BINARY_PATH else DEFAULT_UBUNTU_AGY_BINARY_PATH
 
     val agyBridgeBinaryPath: Flow<String> = context.dataStore.data.map {
-        it[AGY_BRIDGE_BINARY_PATH] ?: getAgyBridgeBinaryPathSync()
+        it[AGY_BRIDGE_BINARY_PATH]?.let { saved ->
+            if (LocalEnvironmentManager.isTermuxPackage(context) && (saved == DEFAULT_UBUNTU_BRIDGE_BINARY_PATH || saved.contains("/antigem/bin"))) {
+                DEFAULT_BRIDGE_BINARY_PATH
+            } else saved
+        } ?: getAgyBridgeBinaryPathSync()
     }
 
-    fun getAgyBridgeBinaryPathSync(): String =
-        syncPrefs.getString("agy_bridge_binary_path", getDefaultBridgeBinaryPath()) ?: getDefaultBridgeBinaryPath()
+    fun getAgyBridgeBinaryPathSync(): String {
+        val saved = syncPrefs.getString("agy_bridge_binary_path", null)
+        val isTermux = LocalEnvironmentManager.isTermuxPackage(context)
+        if (isTermux && (saved.isNullOrBlank() || saved == DEFAULT_UBUNTU_BRIDGE_BINARY_PATH || saved.contains("/antigem/bin"))) {
+            return DEFAULT_BRIDGE_BINARY_PATH
+        }
+        return saved?.ifBlank { getDefaultBridgeBinaryPath() } ?: getDefaultBridgeBinaryPath()
+    }
 
     suspend fun saveAgyBridgeBinaryPath(path: String) {
         val trimmed = path.trim().ifBlank { getDefaultBridgeBinaryPath() }
@@ -774,11 +785,21 @@ class AuthPreferences(private val context: Context) {
     }
 
     val agyBinaryPath: Flow<String> = context.dataStore.data.map {
-        it[AGY_BINARY_PATH] ?: getAgyBinaryPathSync()
+        it[AGY_BINARY_PATH]?.let { saved ->
+            if (LocalEnvironmentManager.isTermuxPackage(context) && (saved == DEFAULT_UBUNTU_AGY_BINARY_PATH || saved.startsWith("/root/"))) {
+                DEFAULT_AGY_BINARY_PATH
+            } else saved
+        } ?: getAgyBinaryPathSync()
     }
 
-    fun getAgyBinaryPathSync(): String =
-        syncPrefs.getString("agy_binary_path", getDefaultAgyBinaryPath()) ?: getDefaultAgyBinaryPath()
+    fun getAgyBinaryPathSync(): String {
+        val saved = syncPrefs.getString("agy_binary_path", null)
+        val isTermux = LocalEnvironmentManager.isTermuxPackage(context)
+        if (isTermux && (saved.isNullOrBlank() || saved == DEFAULT_UBUNTU_AGY_BINARY_PATH || saved.startsWith("/root/"))) {
+            return DEFAULT_AGY_BINARY_PATH
+        }
+        return saved?.ifBlank { getDefaultAgyBinaryPath() } ?: getDefaultAgyBinaryPath()
+    }
 
     suspend fun saveAgyBinaryPath(path: String) {
         val trimmed = path.trim().ifBlank { getDefaultAgyBinaryPath() }
@@ -787,10 +808,16 @@ class AuthPreferences(private val context: Context) {
     }
 
     fun getDefaultClaudeBinaryPath(): String =
-        if (context.packageName == "com.termux") DEFAULT_CLAUDE_BINARY_PATH else DEFAULT_UBUNTU_CLAUDE_BINARY_PATH
+        if (LocalEnvironmentManager.isTermuxPackage(context)) DEFAULT_CLAUDE_BINARY_PATH else DEFAULT_UBUNTU_CLAUDE_BINARY_PATH
 
-    fun getClaudeBinaryPathSync(): String =
-        syncPrefs.getString("claude_binary_path", getDefaultClaudeBinaryPath()) ?: getDefaultClaudeBinaryPath()
+    fun getClaudeBinaryPathSync(): String {
+        val saved = syncPrefs.getString("claude_binary_path", null)
+        val isTermux = LocalEnvironmentManager.isTermuxPackage(context)
+        if (isTermux && (saved.isNullOrBlank() || saved == DEFAULT_UBUNTU_CLAUDE_BINARY_PATH || saved.startsWith("/root/") || saved.contains("/antigem/bin"))) {
+            return DEFAULT_CLAUDE_BINARY_PATH
+        }
+        return saved?.ifBlank { getDefaultClaudeBinaryPath() } ?: getDefaultClaudeBinaryPath()
+    }
 
     suspend fun saveClaudeBinaryPath(path: String) {
         val trimmed = path.trim().ifBlank { getDefaultClaudeBinaryPath() }

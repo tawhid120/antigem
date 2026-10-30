@@ -191,6 +191,8 @@
             <intent-filter>
                 <action android:name="com.termux.app.TermuxUrlOpenActivity" />
                 <action android:name="com.termux.app.TermuxOpenActivity" />
+                <action android:name="${applicationId}.app.TermuxUrlOpenActivity" />
+                <action android:name="${applicationId}.app.TermuxOpenActivity" />
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -205,6 +207,8 @@
             <intent-filter>
                 <action android:name="com.termux.app.request_storage_permissions" />
                 <action android:name="com.termux.app.reload_style" />
+                <action android:name="${applicationId}.app.request_storage_permissions" />
+                <action android:name="${applicationId}.app.reload_style" />
             </intent-filter>
         </receiver>
 
@@ -215,6 +219,7 @@
             android:permission="${applicationId}.permission.RUN_COMMAND">
             <intent-filter>
                 <action android:name="com.termux.app.TermuxOpenReceiver" />
+                <action android:name="${applicationId}.app.TermuxOpenReceiver" />
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -229,6 +234,8 @@
             <intent-filter>
                 <action android:name="com.termux.api.ACTION_API" />
                 <action android:name="com.termux.api" />
+                <action android:name="${applicationId}.api.ACTION_API" />
+                <action android:name="${applicationId}.api" />
             </intent-filter>
         </receiver>
 
@@ -246,6 +253,9 @@
                 <action android:name="com.termux.service_wake_lock" />
                 <action android:name="com.termux.service_wake_unlock" />
                 <action android:name="com.termux.service_stop" />
+                <action android:name="${applicationId}.service_wake_lock" />
+                <action android:name="${applicationId}.service_wake_unlock" />
+                <action android:name="${applicationId}.service_stop" />
             </intent-filter>
         </service>
 
