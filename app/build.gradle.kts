@@ -216,7 +216,7 @@ wire {
   }
 }
 
-val buildAgyIdeBridge = tasks.register<Exec>("buildAgyIdeBridge") {
+val buildAgyIdeBridgeArm64 = tasks.register<Exec>("buildAgyIdeBridgeArm64") {
   val binDir = layout.projectDirectory.dir("src/main/assets/bin")
   val bridgeSourceDir = layout.projectDirectory.dir("../agy_ide_bridge")
 
@@ -229,6 +229,29 @@ val buildAgyIdeBridge = tasks.register<Exec>("buildAgyIdeBridge") {
   environment("GOARCH", "arm64")
   environment("CGO_ENABLED", "0")
   commandLine("go", "build", "-ldflags=-s -w", "-o", binDir.file("agy_ide_bridge").asFile.absolutePath, "main.go")
+  doLast {
+    binDir.file("agy_ide_bridge").asFile.copyTo(binDir.file("agy_ide_bridge_arm64").asFile, overwrite = true)
+  }
+}
+
+val buildAgyIdeBridgeArm = tasks.register<Exec>("buildAgyIdeBridgeArm") {
+  val binDir = layout.projectDirectory.dir("src/main/assets/bin")
+  val bridgeSourceDir = layout.projectDirectory.dir("../agy_ide_bridge")
+
+  doFirst {
+    binDir.asFile.mkdirs()
+  }
+
+  workingDir = bridgeSourceDir.asFile
+  environment("GOOS", "android")
+  environment("GOARCH", "arm")
+  environment("GOARM", "7")
+  environment("CGO_ENABLED", "0")
+  commandLine("go", "build", "-ldflags=-s -w", "-o", binDir.file("agy_ide_bridge_arm").asFile.absolutePath, "main.go")
+}
+
+val buildAgyIdeBridge = tasks.register("buildAgyIdeBridge") {
+  dependsOn(buildAgyIdeBridgeArm64, buildAgyIdeBridgeArm)
 }
 
 val copyScriptsToAssets = tasks.register<Copy>("copyScriptsToAssets") {

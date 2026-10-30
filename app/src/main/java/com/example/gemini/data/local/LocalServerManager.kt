@@ -50,7 +50,8 @@ object LocalServerManager {
         val binBridge = File(LocalEnvironmentManager.getBinDir(context), "agy_ide_bridge")
         if (binBridge.exists()) return true
         return try {
-            context.assets.list("bin")?.contains("agy_ide_bridge") == true
+            val list = context.assets.list("bin") ?: emptyArray()
+            list.contains("agy_ide_bridge") || list.contains("agy_ide_bridge_arm") || list.contains("agy_ide_bridge_arm64")
         } catch (_: Exception) {
             false
         }
@@ -115,7 +116,13 @@ object LocalServerManager {
                 if (!binDir.exists()) {
                     binDir.mkdirs()
                 }
-                extractAssetToBin(context, binDir, "agy_ide_bridge")
+                val arch = LocalEnvironmentManager.getBootstrapArch()
+                val availableAssets = context.assets.list("bin") ?: emptyArray()
+                val bridgeAsset = when (arch) {
+                    "arm" -> if (availableAssets.contains("agy_ide_bridge_arm")) "agy_ide_bridge_arm" else "agy_ide_bridge"
+                    else -> if (availableAssets.contains("agy_ide_bridge_arm64")) "agy_ide_bridge_arm64" else "agy_ide_bridge"
+                }
+                extractAssetToBin(context, binDir, bridgeAsset, "agy_ide_bridge")
                 try {
                     extractAssetToBin(context, binDir, "backup_bootstrap")
                 } catch (e: Exception) {
@@ -176,10 +183,17 @@ object LocalServerManager {
             val binDir = LocalEnvironmentManager.getBinDir(context)
             val bridgeFile = File(binDir, "agy_ide_bridge")
 
+            val arch = LocalEnvironmentManager.getBootstrapArch()
+            val availableAssets = context.assets.list("bin") ?: emptyArray()
+            val bridgeAsset = when (arch) {
+                "arm" -> if (availableAssets.contains("agy_ide_bridge_arm")) "agy_ide_bridge_arm" else "agy_ide_bridge"
+                else -> if (availableAssets.contains("agy_ide_bridge_arm64")) "agy_ide_bridge_arm64" else "agy_ide_bridge"
+            }
+
             if (bridgeFile.exists() && bridgeFile.length() > 0) {
                 bridgeFile.copyTo(destFile, overwrite = true)
             } else {
-                context.assets.open("bin/agy_ide_bridge").use { input ->
+                context.assets.open("bin/$bridgeAsset").use { input ->
                     destFile.outputStream().use { output ->
                         input.copyTo(output)
                     }

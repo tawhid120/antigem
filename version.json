@@ -1,13 +1,13 @@
 {
-  "version_code": 118,
-  "version_name": "1.0.18",
+  "version_code": 119,
+  "version_name": "1.0.19",
   "min_supported_version_code": 1,
   "changelog": [
-    "Fixed Antigravity and Claude Code local server freeze (stuck at 'Starting server')",
-    "Updated package detection so com.antigravity.mobile runs the native Termux environment correctly",
-    "Restored auto-launch and bridge binary execution paths for com.antigravity.mobile",
-    "Added automatic SharedPreferences path sanitization for smooth upgrade from v1.0.17",
-    "Restored OAuth sign-in flow and browser callbacks for Antigravity and Claude Code accounts"
+    "Fixed ELF syntax error and bash execution failure on 32-bit ARM devices (Realme C63, etc.)",
+    "Added automatic architecture-aware bootstrap selection (official bootstrap-arm.zip for 32-bit devices)",
+    "Added dual Go bridge compilation for both 32-bit ARM (GOARM=7) and 64-bit ARM64",
+    "Fixed symlink target rewriting from /data/data/com.termux/files to dynamic app sandbox path",
+    "Ensured safe fallback mirrors and robust integrity verification across all CPU architectures"
   ],
   "is_critical": false
 }

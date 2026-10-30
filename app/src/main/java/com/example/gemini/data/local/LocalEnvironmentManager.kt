@@ -507,6 +507,7 @@ object LocalEnvironmentManager {
      */
     fun ensureClaudeWrapper(context: Context) {
         if (!isTermuxPackage(context)) return
+        if (getBootstrapArch() != "aarch64") return
         try {
             val prefix = getPrefixDir(context).absolutePath
             val home = getHomeDir(context).absolutePath
@@ -734,21 +735,35 @@ object LocalEnvironmentManager {
         val packageName = context.packageName
         val isTermux = isTermuxPackage(context)
         val info = if (isTermux) {
-            DiscoveredPackageInfo(
-                url = HARDCODED_ROOTFS_URL,
-                releaseTag = HARDCODED_ROOTFS_TAG,
-                assetName = HARDCODED_ROOTFS_ASSET,
-                arch = arch,
-                sizeBytes = HARDCODED_ROOTFS_SIZE_BYTES,
-                sizeFormatted = "~350 MB",
-                packageName = packageName
-            )
+            if (arch == "aarch64") {
+                DiscoveredPackageInfo(
+                    url = HARDCODED_ROOTFS_URL,
+                    releaseTag = HARDCODED_ROOTFS_TAG,
+                    assetName = HARDCODED_ROOTFS_ASSET,
+                    arch = arch,
+                    sizeBytes = HARDCODED_ROOTFS_SIZE_BYTES,
+                    sizeFormatted = "~350 MB",
+                    packageName = packageName
+                )
+            } else {
+                val urls = resolveBootstrapUrls(arch)
+                val targetUrl = urls.firstOrNull() ?: "https://github.com/termux/termux-packages/releases/download/bootstrap-2026.10.25-r1%2Bapt.android-7/bootstrap-$arch.zip"
+                DiscoveredPackageInfo(
+                    url = targetUrl,
+                    releaseTag = "bootstrap-$arch",
+                    assetName = "bootstrap-$arch.zip",
+                    arch = arch,
+                    sizeBytes = 30 * 1024 * 1024L,
+                    sizeFormatted = "~30 MB",
+                    packageName = packageName
+                )
+            }
         } else {
             DiscoveredPackageInfo(
                 url = UBUNTU_ROOTFS_URL,
                 releaseTag = UBUNTU_ROOTFS_TAG,
                 assetName = UBUNTU_ROOTFS_ASSET,
-                arch = "arm64",
+                arch = if (arch == "arm") "armhf" else "arm64",
                 sizeBytes = UBUNTU_ROOTFS_SIZE_BYTES,
                 sizeFormatted = "~29 MB",
                 packageName = packageName
@@ -828,6 +843,7 @@ object LocalEnvironmentManager {
 
         // 3. Fallback known weekly release tags
         val fallbackTags = listOf(
+            "bootstrap-2026.10.25-r1+apt.android-7",
             "bootstrap-2026.08.30-r1+apt.android-7",
             "bootstrap-2026.08.23-r1+apt.android-7",
             "bootstrap-2026.08.16-r1+apt.android-7",
@@ -888,96 +904,196 @@ object LocalEnvironmentManager {
             when (source) {
                 is BootstrapSource.Auto -> {
                     val isTermux = isTermuxPackage(appContext)
-                    val targetUrl = if (isTermux) HARDCODED_ROOTFS_URL else UBUNTU_ROOTFS_URL
-                    val targetAsset = if (isTermux) HARDCODED_ROOTFS_ASSET else UBUNTU_ROOTFS_ASSET
-                    val targetSizeBytes = if (isTermux) HARDCODED_ROOTFS_SIZE_BYTES else UBUNTU_ROOTFS_SIZE_BYTES
-                    val titlePrefix = if (isTermux) "AntiGem Rootfs" else "Ubuntu Rootfs"
+                    if (isTermux && arch != "aarch64") {
+                        val downloadUrls = resolveBootstrapUrls(arch)
+                        Log.d(TAG, "Device arch is $arch (32-bit or non-aarch64): downloading architecture-matched Termux bootstrap ($arch)")
+                        _installerState.value = LocalInstallerState.Downloading(
+                            bytesDownloaded = 0L,
+                            totalBytes = 30 * 1024 * 1024L,
+                            progressFraction = 0.02f,
+                            speedText = "Finding package...",
+                            currentPackageName = "bootstrap-$arch.zip"
+                        )
+                        updateInstallNotification(appContext, "Downloading Termux Rootfs", "Finding bootstrap package...", -1)
 
-                    _installerState.value = LocalInstallerState.Downloading(
-                        bytesDownloaded = 0L,
-                        totalBytes = targetSizeBytes,
-                        progressFraction = 0.02f,
-                        speedText = "Connecting...",
-                        currentPackageName = targetAsset
-                    )
-                    updateInstallNotification(appContext, "Downloading $titlePrefix", "Connecting...", -1)
+                        for ((index, url) in downloadUrls.withIndex()) {
+                            try {
+                                Log.d(TAG, "Trying download mirror [${index + 1}/${downloadUrls.size}]: $url")
+                                _installerState.value = LocalInstallerState.Downloading(
+                                    bytesDownloaded = 0L,
+                                    totalBytes = 30 * 1024 * 1024L,
+                                    progressFraction = 0.05f,
+                                    speedText = "Connecting mirror ${index + 1}...",
+                                    currentPackageName = "bootstrap-$arch.zip"
+                                )
+                                updateInstallNotification(appContext, "Downloading Termux Rootfs", "Connecting mirror ${index + 1}...", -1)
 
-                    try {
-                        val request = Request.Builder()
-                            .url(targetUrl)
-                            .header("User-Agent", "GeminiApp-LocalTerminal/${Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64"}")
-                            .build()
+                                val request = Request.Builder()
+                                    .url(url)
+                                    .header("User-Agent", "GeminiApp-LocalTerminal/${Build.SUPPORTED_ABIS.firstOrNull() ?: arch}")
+                                    .build()
 
-                        httpClient.newCall(request).execute().use { response ->
-                            if (!response.isSuccessful) {
-                                val errorMsg = "Download failed: HTTP ${response.code} from release server."
-                                updateInstallNotification(appContext, "Installation Failed", errorMsg, -2, ongoing = false, force = true)
-                                _installerState.value = LocalInstallerState.Error(errorMessage = errorMsg, canRetry = true)
-                                return@withContext false
+                                httpClient.newCall(request).execute().use { response ->
+                                    if (!response.isSuccessful) {
+                                        Log.w(TAG, "Mirror returned HTTP ${response.code}: $url")
+                                        return@use
+                                    }
+
+                                    val body = response.body ?: return@use
+                                    val contentLength = body.contentLength()
+                                    if (contentLength in 1 until MIN_BOOTSTRAP_SIZE_BYTES) {
+                                        Log.w(TAG, "Rejected URL $url due to content length: $contentLength bytes (< 10 MB)")
+                                        return@use
+                                    }
+
+                                    val expectedTotal = if (contentLength > 0) contentLength else 30 * 1024 * 1024L
+                                    var bytesReadTotal = 0L
+                                    val startTime = System.currentTimeMillis()
+
+                                    val buffer = ByteArray(64 * 1024)
+                                    FileOutputStream(tempZipFile).use { outStream ->
+                                        body.byteStream().use { inStream ->
+                                            var read: Int
+                                            var lastUpdate = System.currentTimeMillis()
+                                            while (inStream.read(buffer).also { read = it } != -1) {
+                                                outStream.write(buffer, 0, read)
+                                                bytesReadTotal += read
+
+                                                val now = System.currentTimeMillis()
+                                                if (now - lastUpdate > 120) {
+                                                    val elapsedSec = (now - startTime) / 1000.0
+                                                    val speed = if (elapsedSec > 0) bytesReadTotal / elapsedSec else 0.0
+                                                    val speedFormatted = "${formatFileSize(speed.toLong())}/s"
+                                                    val fraction = (bytesReadTotal.toFloat() / expectedTotal.toFloat()).coerceIn(0.05f, 0.95f)
+
+                                                    _installerState.value = LocalInstallerState.Downloading(
+                                                        bytesDownloaded = bytesReadTotal,
+                                                        totalBytes = expectedTotal,
+                                                        progressFraction = fraction,
+                                                        speedText = speedFormatted,
+                                                        currentPackageName = "bootstrap-$arch.zip"
+                                                    )
+                                                    val pct = (fraction * 100).toInt()
+                                                    updateInstallNotification(appContext, "Downloading Termux Rootfs ($pct%)", "$speedFormatted • bootstrap-$arch.zip", pct)
+                                                    lastUpdate = now
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    finalDownloadedSize = tempZipFile.length()
+                                    if (finalDownloadedSize >= MIN_BOOTSTRAP_SIZE_BYTES && validateArchiveIntegrity(tempZipFile)) {
+                                        downloadSucceeded = true
+                                    } else {
+                                        tempZipFile.delete()
+                                    }
+                                }
+
+                                if (downloadSucceeded) break
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Download attempt failed from $url: ${e.message}")
+                                if (tempZipFile.exists()) tempZipFile.delete()
                             }
+                        }
 
-                            val body = response.body
-                            if (body == null) {
-                                val errorMsg = "Download failed: Empty response body."
-                                updateInstallNotification(appContext, "Installation Failed", errorMsg, -2, ongoing = false, force = true)
-                                _installerState.value = LocalInstallerState.Error(errorMessage = errorMsg, canRetry = true)
-                                return@withContext false
-                            }
+                        if (!downloadSucceeded) {
+                            val errorMsg = "All bootstrap-$arch download mirrors failed. Please check internet connection."
+                            updateInstallNotification(appContext, "Installation Failed", errorMsg, -2, ongoing = false, force = true)
+                            _installerState.value = LocalInstallerState.Error(errorMessage = errorMsg, canRetry = true)
+                            return@withContext false
+                        }
+                    } else {
+                        val targetUrl = if (isTermux) HARDCODED_ROOTFS_URL else UBUNTU_ROOTFS_URL
+                        val targetAsset = if (isTermux) HARDCODED_ROOTFS_ASSET else UBUNTU_ROOTFS_ASSET
+                        val targetSizeBytes = if (isTermux) HARDCODED_ROOTFS_SIZE_BYTES else UBUNTU_ROOTFS_SIZE_BYTES
+                        val titlePrefix = if (isTermux) "AntiGem Rootfs" else "Ubuntu Rootfs"
 
-                            val contentLength = body.contentLength()
-                            val expectedTotal = if (contentLength > 0) contentLength else targetSizeBytes
-                            var bytesReadTotal = 0L
-                            val startTime = System.currentTimeMillis()
+                        _installerState.value = LocalInstallerState.Downloading(
+                            bytesDownloaded = 0L,
+                            totalBytes = targetSizeBytes,
+                            progressFraction = 0.02f,
+                            speedText = "Connecting...",
+                            currentPackageName = targetAsset
+                        )
+                        updateInstallNotification(appContext, "Downloading $titlePrefix", "Connecting...", -1)
 
-                            val buffer = ByteArray(64 * 1024)
-                            FileOutputStream(tempZipFile).use { outStream ->
-                                body.byteStream().use { inStream ->
-                                    var read: Int
-                                    var lastUpdate = System.currentTimeMillis()
-                                    while (inStream.read(buffer).also { read = it } != -1) {
-                                        outStream.write(buffer, 0, read)
-                                        bytesReadTotal += read
+                        try {
+                            val request = Request.Builder()
+                                .url(targetUrl)
+                                .header("User-Agent", "GeminiApp-LocalTerminal/${Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64"}")
+                                .build()
 
-                                        val now = System.currentTimeMillis()
-                                        if (now - lastUpdate > 120) {
-                                            val elapsedSec = (now - startTime) / 1000.0
-                                            val speed = if (elapsedSec > 0) bytesReadTotal / elapsedSec else 0.0
-                                            val speedFormatted = "${formatFileSize(speed.toLong())}/s"
-                                            val fraction = (bytesReadTotal.toFloat() / expectedTotal.toFloat()).coerceIn(0.05f, 0.95f)
+                            httpClient.newCall(request).execute().use { response ->
+                                if (!response.isSuccessful) {
+                                    val errorMsg = "Download failed: HTTP ${response.code} from release server."
+                                    updateInstallNotification(appContext, "Installation Failed", errorMsg, -2, ongoing = false, force = true)
+                                    _installerState.value = LocalInstallerState.Error(errorMessage = errorMsg, canRetry = true)
+                                    return@withContext false
+                                }
 
-                                            _installerState.value = LocalInstallerState.Downloading(
-                                                bytesDownloaded = bytesReadTotal,
-                                                totalBytes = expectedTotal,
-                                                progressFraction = fraction,
-                                                speedText = speedFormatted,
-                                                currentPackageName = targetAsset
-                                            )
-                                            val pct = (fraction * 100).toInt()
-                                            updateInstallNotification(appContext, "Downloading $titlePrefix ($pct%)", "$speedFormatted • $targetAsset", pct)
-                                            lastUpdate = now
+                                val body = response.body
+                                if (body == null) {
+                                    val errorMsg = "Download failed: Empty response body."
+                                    updateInstallNotification(appContext, "Installation Failed", errorMsg, -2, ongoing = false, force = true)
+                                    _installerState.value = LocalInstallerState.Error(errorMessage = errorMsg, canRetry = true)
+                                    return@withContext false
+                                }
+
+                                val contentLength = body.contentLength()
+                                val expectedTotal = if (contentLength > 0) contentLength else targetSizeBytes
+                                var bytesReadTotal = 0L
+                                val startTime = System.currentTimeMillis()
+
+                                val buffer = ByteArray(64 * 1024)
+                                FileOutputStream(tempZipFile).use { outStream ->
+                                    body.byteStream().use { inStream ->
+                                        var read: Int
+                                        var lastUpdate = System.currentTimeMillis()
+                                        while (inStream.read(buffer).also { read = it } != -1) {
+                                            outStream.write(buffer, 0, read)
+                                            bytesReadTotal += read
+
+                                            val now = System.currentTimeMillis()
+                                            if (now - lastUpdate > 120) {
+                                                val elapsedSec = (now - startTime) / 1000.0
+                                                val speed = if (elapsedSec > 0) bytesReadTotal / elapsedSec else 0.0
+                                                val speedFormatted = "${formatFileSize(speed.toLong())}/s"
+                                                val fraction = (bytesReadTotal.toFloat() / expectedTotal.toFloat()).coerceIn(0.05f, 0.95f)
+
+                                                _installerState.value = LocalInstallerState.Downloading(
+                                                    bytesDownloaded = bytesReadTotal,
+                                                    totalBytes = expectedTotal,
+                                                    progressFraction = fraction,
+                                                    speedText = speedFormatted,
+                                                    currentPackageName = targetAsset
+                                                )
+                                                val pct = (fraction * 100).toInt()
+                                                updateInstallNotification(appContext, "Downloading $titlePrefix ($pct%)", "$speedFormatted • $targetAsset", pct)
+                                                lastUpdate = now
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            finalDownloadedSize = tempZipFile.length()
-                            if (finalDownloadedSize >= MIN_BOOTSTRAP_SIZE_BYTES && validateArchiveIntegrity(tempZipFile)) {
-                                downloadSucceeded = true
-                            } else {
-                                tempZipFile.delete()
-                                val errorMsg = "Downloaded rootfs archive was incomplete or corrupted."
-                                updateInstallNotification(appContext, "Installation Failed", errorMsg, -2, ongoing = false, force = true)
-                                _installerState.value = LocalInstallerState.Error(errorMessage = errorMsg, canRetry = true)
-                                return@withContext false
+                                finalDownloadedSize = tempZipFile.length()
+                                if (finalDownloadedSize >= MIN_BOOTSTRAP_SIZE_BYTES && validateArchiveIntegrity(tempZipFile)) {
+                                    downloadSucceeded = true
+                                } else {
+                                    tempZipFile.delete()
+                                    val errorMsg = "Downloaded rootfs archive was incomplete or corrupted."
+                                    updateInstallNotification(appContext, "Installation Failed", errorMsg, -2, ongoing = false, force = true)
+                                    _installerState.value = LocalInstallerState.Error(errorMessage = errorMsg, canRetry = true)
+                                    return@withContext false
+                                }
                             }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Download attempt failed from $targetUrl: ${e.message}")
+                            if (tempZipFile.exists()) tempZipFile.delete()
+                            val errorMsg = "Download failed: ${e.message ?: "Network error"}"
+                            updateInstallNotification(appContext, "Installation Failed", errorMsg, -2, ongoing = false, force = true)
+                            _installerState.value = LocalInstallerState.Error(errorMessage = errorMsg, canRetry = true)
+                            return@withContext false
                         }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Download attempt failed from $targetUrl: ${e.message}")
-                        if (tempZipFile.exists()) tempZipFile.delete()
-                        val errorMsg = "Download failed: ${e.message ?: "Network error"}"
-                        updateInstallNotification(appContext, "Installation Failed", errorMsg, -2, ongoing = false, force = true)
-                        _installerState.value = LocalInstallerState.Error(errorMessage = errorMsg, canRetry = true)
-                        return@withContext false
                     }
                 }
 
@@ -1396,7 +1512,12 @@ object LocalEnvironmentManager {
                                     val symlinkTarget = entry.linkName
                                     if (!symlinkTarget.isNullOrBlank()) {
                                         try {
-                                            Os.symlink(symlinkTarget, targetFile.absolutePath)
+                                            val resolvedTarget = if (symlinkTarget.startsWith("/data/data/com.termux/files")) {
+                                                symlinkTarget.replaceFirst("/data/data/com.termux/files", appContext.filesDir.absolutePath)
+                                            } else {
+                                                symlinkTarget
+                                            }
+                                            Os.symlink(resolvedTarget, targetFile.absolutePath)
                                         } catch (e: Exception) {
                                             Log.w(TAG, "Failed creating symlink $cleanPath -> $symlinkTarget: ${e.message}")
                                         }
@@ -1529,7 +1650,12 @@ object LocalEnvironmentManager {
                                     }
                                     val symlinkTarget = zip.getUnixSymlink(entry)
                                     if (!symlinkTarget.isNullOrBlank()) {
-                                        Os.symlink(symlinkTarget, targetFile.absolutePath)
+                                        val resolvedTarget = if (symlinkTarget.startsWith("/data/data/com.termux/files")) {
+                                            symlinkTarget.replaceFirst("/data/data/com.termux/files", appContext.filesDir.absolutePath)
+                                        } else {
+                                            symlinkTarget
+                                        }
+                                        Os.symlink(resolvedTarget, targetFile.absolutePath)
                                     }
                                 } catch (e: Exception) {
                                     Log.w(TAG, "Failed creating embedded symlink for $rawName: ${e.message}")
@@ -1637,7 +1763,12 @@ object LocalEnvironmentManager {
                                         linkFile.setWritable(true, true)
                                         try { linkFile.delete() } catch (_: Exception) {}
                                     }
-                                    Os.symlink(target, linkFile.absolutePath)
+                                    val resolvedTarget = if (target.startsWith("/data/data/com.termux/files")) {
+                                        target.replaceFirst("/data/data/com.termux/files", appContext.filesDir.absolutePath)
+                                    } else {
+                                        target
+                                    }
+                                    Os.symlink(resolvedTarget, linkFile.absolutePath)
                                 }
                             } catch (e: Exception) {
                                 Log.w(TAG, "Error creating symlink for $linkRelPath -> $target: ${e.message}")
@@ -1802,6 +1933,10 @@ object LocalEnvironmentManager {
     }
 
     private fun extractGlibcMinAsset(context: Context, prefixDir: File): Boolean {
+        if (getBootstrapArch() != "aarch64") {
+            log("Skipping 64-bit minimal Glibc runtime (device is 32-bit / ${getBootstrapArch()})")
+            return false
+        }
         log("Checking for bundled minimal Glibc runtime...")
         val assetName = "glibc-min-arm64.tar"
         val inStream = try {
@@ -1863,6 +1998,7 @@ object LocalEnvironmentManager {
     }
 
     fun ensureGlibcEnvironment(context: Context): Boolean {
+        if (getBootstrapArch() != "aarch64") return false
         val prefixDir = getPrefixDir(context)
         val glibcDir = File(prefixDir, "glibc")
         val glibcLib = File(glibcDir, "lib")
