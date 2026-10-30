@@ -235,6 +235,7 @@ val buildAgyIdeBridgeArm64 = tasks.register<Exec>("buildAgyIdeBridgeArm64") {
 }
 
 val buildAgyIdeBridgeArm = tasks.register<Exec>("buildAgyIdeBridgeArm") {
+  mustRunAfter(buildAgyIdeBridgeArm64)
   val binDir = layout.projectDirectory.dir("src/main/assets/bin")
   val bridgeSourceDir = layout.projectDirectory.dir("../agy_ide_bridge")
 
@@ -243,7 +244,7 @@ val buildAgyIdeBridgeArm = tasks.register<Exec>("buildAgyIdeBridgeArm") {
   }
 
   workingDir = bridgeSourceDir.asFile
-  environment("GOOS", "android")
+  environment("GOOS", "linux")
   environment("GOARCH", "arm")
   environment("GOARM", "7")
   environment("CGO_ENABLED", "0")
