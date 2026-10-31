@@ -323,6 +323,13 @@ class LocalPtySession(
                 envMap["COLUMNS"] = "$safeCols"
                 envMap["LINES"] = "$safeRows"
                 envMap["PS1"] = "$ "
+                envMap["LD_LIBRARY_PATH"] = lib.absolutePath
+                val termuxExec = File(lib, "libtermux-exec.so")
+                val termuxExecPreload = File(lib, "libtermux-exec-ld-preload.so")
+                when {
+                    termuxExec.exists() -> envMap["LD_PRELOAD"] = termuxExec.absolutePath
+                    termuxExecPreload.exists() -> envMap["LD_PRELOAD"] = termuxExecPreload.absolutePath
+                }
 
                 val envList = envMap.map { "${it.key}=${it.value}" }.toTypedArray()
 

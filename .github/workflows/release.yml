@@ -45,10 +45,12 @@ jobs:
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Restore Keystore from Secret or Generate
+      - name: Restore Keystore from Secret or Use Repository Keystore
         run: |
           if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
             echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > app/release.jks
+          elif [ -f "app/release.jks" ]; then
+            echo "Using existing repository release keystore (app/release.jks)..."
           else
             echo "Generating release keystore..."
             keytool -genkeypair -v -keystore app/release.jks -alias antigem -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=AntiGem, OU=App, O=AntiGem, L=City, S=State, C=US"

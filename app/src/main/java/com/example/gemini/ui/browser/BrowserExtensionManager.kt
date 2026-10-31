@@ -131,11 +131,14 @@ class BrowserExtensionManager private constructor() {
                 if (it.isDirectory) command.addAll(listOf("--extra-root", it.absolutePath))
             }
             val builder = ProcessBuilder(command).directory(LocalEnvironmentManager.getHomeDir(context)).redirectErrorStream(true)
-            builder.environment().putAll(mapOf("HOME" to LocalEnvironmentManager.getHomeDir(context).absolutePath,
+            builder.environment().putAll(mapOf(
+                "HOME" to LocalEnvironmentManager.getHomeDir(context).absolutePath,
                 "PREFIX" to LocalEnvironmentManager.getPrefixDir(context).absolutePath,
                 "PATH" to "${LocalEnvironmentManager.getBinDir(context).absolutePath}:/system/bin",
+                "LD_LIBRARY_PATH" to LocalEnvironmentManager.getLibDir(context).absolutePath,
                 "TMPDIR" to LocalEnvironmentManager.getTmpDir(context).absolutePath,
-                "AGY_PARENT_PID" to android.os.Process.myPid().toString()))
+                "AGY_PARENT_PID" to android.os.Process.myPid().toString()
+            ))
             hostProcess = builder.start()
             val process = hostProcess!!
             scope.launch { process.inputStream.bufferedReader().useLines { lines -> lines.forEach { Log.d(TAG, it) } } }

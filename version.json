@@ -1,13 +1,11 @@
 {
-  "version_code": 119,
-  "version_name": "1.0.19",
+  "version_code": 120,
+  "version_name": "1.0.20",
   "min_supported_version_code": 1,
   "changelog": [
-    "Fixed ELF syntax error and bash execution failure on 32-bit ARM devices (Realme C63, etc.)",
-    "Added automatic architecture-aware bootstrap selection (official bootstrap-arm.zip for 32-bit devices)",
-    "Added dual Go bridge compilation for both 32-bit ARM (GOARM=7) and 64-bit ARM64",
-    "Fixed symlink target rewriting from /data/data/com.termux/files to dynamic app sandbox path",
-    "Ensured safe fallback mirrors and robust integrity verification across all CPU architectures"
+    "Fixed shell linking error (missing libandroid-support.so) by configuring dynamic LD_LIBRARY_PATH and LD_PRELOAD",
+    "Committed permanent release keystore ensuring seamless in-place updates without uninstalling",
+    "Verified all child process runners across Terminal, Extension Host, and Shell scripts"
   ],
   "is_critical": false
 }

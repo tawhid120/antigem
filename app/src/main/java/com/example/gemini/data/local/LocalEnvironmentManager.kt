@@ -2429,9 +2429,11 @@ All files created here persist inside the application.
             }
             try {
                 val pb = ProcessBuilder(sshKeygen.absolutePath, "-A")
+                val libDir = getLibDir(context)
                 pb.environment()["PREFIX"] = prefixDir.absolutePath
                 pb.environment()["HOME"] = homeDir.absolutePath
                 pb.environment()["PATH"] = "${binDir.absolutePath}:/system/bin"
+                pb.environment()["LD_LIBRARY_PATH"] = libDir.absolutePath
                 val process = pb.start()
                 process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
                 log("Generated fresh OpenSSH host keys via ssh-keygen -A")
@@ -2580,6 +2582,13 @@ All files created here persist inside the application.
             env["HOME"] = home.absolutePath
             env["PATH"] = "${home.absolutePath}/.local/bin:${bin.absolutePath}:${bin.absolutePath}/applets:/system/bin:/system/xbin"
             env["TMPDIR"] = tmp.absolutePath
+            env["LD_LIBRARY_PATH"] = lib.absolutePath
+            val termuxExec = File(lib, "libtermux-exec.so")
+            val termuxExecPreload = File(lib, "libtermux-exec-ld-preload.so")
+            when {
+                termuxExec.exists() -> env["LD_PRELOAD"] = termuxExec.absolutePath
+                termuxExecPreload.exists() -> env["LD_PRELOAD"] = termuxExecPreload.absolutePath
+            }
             env["TERM"] = "xterm-256color"
             env["COLORTERM"] = "truecolor"
             env["TERMUX_VERSION"] = "0.118.0"
@@ -2766,6 +2775,14 @@ All files created here persist inside the application.
         env["HOME"] = homeDir.absolutePath
         env["TMPDIR"] = tmpDir.absolutePath
         env["PATH"] = "${homeDir.absolutePath}/.local/bin:${binDir.absolutePath}:${prefixDir.absolutePath}/bin:/system/bin:/system/xbin"
+        val libDir = File(prefixDir, "lib")
+        env["LD_LIBRARY_PATH"] = libDir.absolutePath
+        val termuxExec = File(libDir, "libtermux-exec.so")
+        val termuxExecPreload = File(libDir, "libtermux-exec-ld-preload.so")
+        when {
+            termuxExec.exists() -> env["LD_PRELOAD"] = termuxExec.absolutePath
+            termuxExecPreload.exists() -> env["LD_PRELOAD"] = termuxExecPreload.absolutePath
+        }
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
         env["LANG"] = "en_US.UTF-8"
